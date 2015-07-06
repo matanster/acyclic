@@ -3,6 +3,7 @@ package acyclic.plugin
 import acyclic.file
 import scala.tools.nsc.Global
 object DependencyExtraction{
+  
   def apply(global: Global)(unit: global.CompilationUnit): Seq[(global.Symbol, global.Tree)] = {
     import global._
 

@@ -24,8 +24,9 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
 
   override val runsRightAfter = Some("typer")
 
-  val phaseName = "acyclic"
-  def pkgName(unit: CompilationUnit) = {
+  val phaseName = "grapher"
+  def pkgName(unit: CompilationUnit) = { // typically a unit is a source file
+    //println("\nSource file: " + unit) // print source file name
     unit.body
         .collect{case x: PackageDef => x.pid.toString}
         .flatMap(_.split('.'))
@@ -41,7 +42,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
       unit <- units
       if unit.body.children.collect{
         case Import(expr, List(sel)) =>
-          expr.symbol.toString == "package acyclic" && sel.name.toString == "file"
+          expr.symbol.toString == "package acyclic" && sel.name.toString == "file" // is it an `import acyclic.file`?
       }.exists(x => x)
     } yield {
       Value.File(unit.source.path, pkgName(unit))
@@ -51,7 +52,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
       unit <- units
       pkgObject <- unit.body.collect{case x: ModuleDef if x.name.toString == "package" => x }
       if pkgObject.impl.children.collect{case Import(expr, List(sel)) =>
-        expr.symbol.toString == "package acyclic" && sel.name.toString == "pkg"
+        expr.symbol.toString == "package acyclic" && sel.name.toString == "pkg" // is it an `import acyclic.pkg`
       }.exists(x => x)
     } yield {
       Value.Pkg(
@@ -70,8 +71,12 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
       val unitMap = units.map(u => u.source.path -> u).toMap
       val nodes = for (unit <- units) yield {
 
+        println(unit.source.path)
+        println("----------------")
+        
         val deps = DependencyExtraction(t.global)(unit)
-
+        println("deps:" + deps + "\n")
+        
         val connections = for{
           (sym, tree) <- deps
           if sym != NoSymbol
@@ -134,7 +139,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
           cycleInfo.map{ case (a, b) => a -> b.map(_.pos.line).to[SortedSet]}
         )
 
-        global.error("Unwanted cyclic dependency")
+        global.warning("cyclic dependency:")
         for (Seq((value, locs), (nextValue, _)) <- (cycleInfo :+ cycleInfo.head).sliding(2)){
           global.inform("")
           value match{
