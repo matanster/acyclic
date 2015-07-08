@@ -37,7 +37,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
                     .toSeq
                     .sortBy(_.source.content.mkString.hashCode())
 
-  def findAcyclics() = {
+  def findAcyclics(): (Seq[Value.File], Seq[Value.Pkg]) = {
     val acyclicNodePaths = for {
       unit <- units
       if unit.body.children.collect{
@@ -52,7 +52,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
       unit <- units
       pkgObject <- unit.body.collect{case x: ModuleDef if x.name.toString == "package" => x }
       if pkgObject.impl.children.collect{case Import(expr, List(sel)) =>
-        expr.symbol.toString == "package acyclic" && sel.name.toString == "pkg" // is it an `import acyclic.pkg`
+        expr.symbol.toString == "package acyclic" && sel.name.toString == "pkg" // is it an `import acyclic.pkg`?
       }.exists(x => x)
     } yield {
       Value.Pkg(
@@ -71,18 +71,21 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
       val unitMap = units.map(u => u.source.path -> u).toMap
       val nodes = for (unit <- units) yield {
 
-        println(unit.source.path)
-        println("----------------")
+        //println(unit.source.path)
+        //println("----------------")
         
-        val deps = DependencyExtraction(t.global)(unit)
-        println("deps:" + deps + "\n")
+        // get the tree for each symbol
+        val deps: Seq[(global.Symbol, global.Tree)] = DependencyExtraction(t.global)(unit)  
+        //println("deps:" + deps + "\n")
         
+        // associate all trees of each symbol in a source file, to the source file itself
+        // (or the equivalent for packages, both represented as `Node`s).
         val connections = for{
           (sym, tree) <- deps
           if sym != NoSymbol
           if sym.sourceFile != null
           if sym.sourceFile.path != unit.source.path
-        } yield (sym.sourceFile.path, tree)
+        } yield (sym.sourceFile.path, tree) 
 
         Node[Value.File](
           Value.File(unit.source.path, pkgName(unit)),
@@ -91,7 +94,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
         )
       }
 
-      val nodeMap = nodes.map(n => n.value -> n).toMap
+      val nodeMap = nodes.map(n => n.value -> n).toMap // this is already the final mapping of deps between files / packages 
 
       val (acyclicFiles, acyclicPkgs) = findAcyclics()
 
@@ -118,6 +121,7 @@ class PluginPhase(val global: Global, cycleReporter: Seq[(Value, SortedSet[Int])
         } yield (acyclicPkg, pos)
         d.copy(dependencies = d.dependencies ++ extraLinks)
       }
+      //println(linkedNodes)
 
       // only care about cycles with size > 1 here
       val components = DepNode.stronglyConnectedComponents(linkedNodes)

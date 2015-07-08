@@ -29,19 +29,23 @@ object DependencyExtraction{
       override def traverse(tree: Tree): Unit = {
         tree match {
           case i @ Import(expr, selectors) =>
-
             selectors.foreach {
-              case ImportSelector(nme.WILDCARD, _, null, _) =>
-              // in case of wildcard import we do not rely on any particular name being defined
-              // on `expr`; all symbols that are being used will get caught through selections
-              case ImportSelector(name: Name, _, _, _) =>
+              case ImportSelector(nme.WILDCARD, _, null, _) => // a wildcard import
+                // in case of wildcard import we do not rely on any particular name being defined
+                // on `expr`; all symbols that are being used will get caught through selections
+                //println(tree)
+              case ImportSelector(name: Name, _, _, _) => // a specific import
                 def lookupImported(name: Name) = expr.symbol.info.member(name)
                 // importing a name means importing both a term and a type (if they exist)
                 addDependency(lookupImported(name.toTermName), tree)
                 addDependency(lookupImported(name.toTypeName), tree)
+                //println(tree); println(lookupImported(name) + "(" + lookupImported(name).id + ")")
             }
           case select: Select =>
             addDependency(select.symbol, tree)
+            ////println(select.tpe + " contains symbols: ")
+            println("uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
+            
           /*
            * Idents are used in number of situations:
            *  - to refer to local variable
@@ -52,7 +56,9 @@ object DependencyExtraction{
            */
           case ident: Ident =>
             addDependency(ident.symbol, tree)
+            //println(ident.symbol)
           case typeTree: TypeTree =>
+            //println(typeTree.tpe.typeSymbol)
             val typeSymbolCollector = new CollectTypeTraverser({
               case tpe if !tpe.typeSymbol.isPackage => tpe.typeSymbol
             })
@@ -60,6 +66,11 @@ object DependencyExtraction{
             val deps = typeSymbolCollector.collected.toSet
             deps.foreach(addDependency(_, tree))
           case Template(parents, self, body) =>
+            val parentTypeSymbols: Set[global.Symbol] = parents.map(parent => parent.tpe.typeSymbol).toSet
+            println
+            println(tree.tpe.typeSymbol.keyString + " " + tree.tpe.typeSymbol.nameString + " (" + tree.tpe.typeSymbol.id + ") ")
+            parentTypeSymbols.foreach(s => println("extends: " + s.keyString + " " + s.nameString + " (" + s.id + ") "))
+            tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString))
             traverseTrees(body)
           case other => ()
         }
@@ -79,9 +90,11 @@ object DependencyExtraction{
         case Template(parents, self, body) =>
           // we are using typeSymbol and not typeSymbolDirect because we want
           // type aliases to be expanded
-          val parentTypeSymbols = parents.map(parent => parent.tpe.typeSymbol).toSet
-          debuglog("Parent type symbols for " + tree.pos + ": " + parentTypeSymbols.map(_.fullName))
+          val parentTypeSymbols: Set[global.Symbol] = parents.map(parent => parent.tpe.typeSymbol).toSet
           parentTypeSymbols.foreach(addDependency(_, tree))
+          //println(tree.tpe.typeSymbol.keyString + " " + tree.tpe.typeSymbol.nameString + " (" + tree.tpe.typeSymbol.id + ") " + "extends:")
+          //parentTypeSymbols.foreach(s => println(s.keyString + " " + s.nameString + " (" + s.id + ") "))
+          //println
           traverseTrees(body)
         case tree => super.traverse(tree)
       }
@@ -93,6 +106,7 @@ object DependencyExtraction{
       traverser.dependencies
     }
 
-    (byMembers() | byInheritence()).toSeq
+    (byMembers() | byInheritence()).toSeq // get object's dependencies arising from both what's inside 
+                                          // it and what's inherited by it (through `extend`).
   }
 }
