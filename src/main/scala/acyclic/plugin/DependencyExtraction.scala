@@ -44,7 +44,13 @@ object DependencyExtraction{
           case select: Select =>
             addDependency(select.symbol, tree)
             ////println(select.tpe + " contains symbols: ")
-            println("uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
+            select.symbol.kindString match {
+              case "method" =>      println("uses: " + select.symbol + " of " + select.symbol.owner)
+              case "constructor" => // ignore
+              case _ =>             println("uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
+            }
+            
+            //select.symbol.tpe.typeSymbol + " or rather of " + select.symbol.owner)
             
           /*
            * Idents are used in number of situations:
