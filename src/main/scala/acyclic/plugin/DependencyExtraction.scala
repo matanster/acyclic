@@ -76,11 +76,10 @@ object DependencyExtraction{
             println
             println(tree.tpe.typeSymbol.keyString + " " + tree.tpe.typeSymbol.nameString + " (" + tree.tpe.typeSymbol.id + ") ")
             parentTypeSymbols.foreach(s => println("extends: " + s.keyString + " " + s.nameString + " (" + s.id + ") "))
-            tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString))
+            tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString)) // TODO: need to deduplicate these
             traverseTrees(body)
-          case other => ()
+          case tree => super.traverse(tree)
         }
-        super.traverse(tree)
       }
     }
 
@@ -112,7 +111,9 @@ object DependencyExtraction{
       traverser.dependencies
     }
 
-    (byMembers() | byInheritence()).toSeq // get object's dependencies arising from both what's inside 
+    val traverseByMembers = byMembers()
+    val traverseByInheritence = byInheritence() 
+    (traverseByMembers | traverseByInheritence).toSeq // get object's dependencies arising from both what's inside 
                                           // it and what's inherited by it (through `extend`).
   }
 }
