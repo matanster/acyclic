@@ -45,7 +45,7 @@ object DependencyExtraction{
             addDependency(select.symbol, tree)
             ////println(select.tpe + " contains symbols: ")
             select.symbol.kindString match {
-              case "method" =>      println("uses: " + select.symbol + " of " + select.symbol.owner)
+              case "method" =>      println("uses: " + select.symbol + " of " + select.symbol.owner + " owned by " + select.symbol.owner.owner)
               case "constructor" => // ignore
               case _ =>             println("uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
             }
@@ -75,6 +75,7 @@ object DependencyExtraction{
             val parentTypeSymbols: Set[global.Symbol] = parents.map(parent => parent.tpe.typeSymbol).toSet
             println
             println(tree.tpe.typeSymbol.keyString + " " + tree.tpe.typeSymbol.nameString + " (" + tree.tpe.typeSymbol.id + ") ")
+            println("is owned by " + tree.tpe.typeSymbol.owner + " owned by " + tree.tpe.typeSymbol.owner.owner)
             parentTypeSymbols.foreach(s => println("extends: " + s.keyString + " " + s.nameString + " (" + s.id + ") "))
             tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString)) // TODO: need to deduplicate these
             traverseTrees(body)
@@ -114,6 +115,6 @@ object DependencyExtraction{
     val traverseByMembers = byMembers()
     val traverseByInheritence = byInheritence() 
     (traverseByMembers | traverseByInheritence).toSeq // get object's dependencies arising from both what's inside 
-                                          // it and what's inherited by it (through `extend`).
+                                                      // it and what's inherited by it (through `extend`).
   }
 }
