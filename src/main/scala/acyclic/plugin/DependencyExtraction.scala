@@ -16,7 +16,7 @@ object DependencyExtraction{
         mapOver(tpe)
       }
     }
-    
+
     class ExtractDependenciesTraverser extends Traverser {
       protected val depBuf = collection.mutable.ArrayBuffer.empty[(Symbol, Tree)]
       protected def addDependency(sym: Symbol, tree: Tree): Unit = depBuf += ((sym, tree))
@@ -112,8 +112,14 @@ object DependencyExtraction{
       traverser.dependencies
     }
     
-    class ExtractAll extends ExtractDependenciesTraverser {
+    class ExtractAll(defParent: Option[global.Symbol]) extends ExtractDependenciesTraverser {
       override def traverse(tree: Tree): Unit = {
+        
+        (defParent.isDefined) match {
+          case true => println("---- entering traverser with parent value passed " + defParent.get.id  + " ----")
+          case false => println("==== entering traverser without parent value been passed ====")
+        }
+        
         tree match {
           case i @ Import(expr, selectors) =>
             selectors.foreach {
@@ -133,8 +139,8 @@ object DependencyExtraction{
             ////println(select.tpe + " contains symbols: ")
             select.symbol.kindString match {
               case "constructor" => // ignore
-              case "method" =>      println("uses: " + select.symbol + " (" + select.symbol.id + ")" +  " of " + select.symbol.owner + " owned by " + select.symbol.owner.owner)
-              case _ =>             println("uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
+              case "method" =>      println(defParent.getOrElse("root") + " uses: " + select.symbol + " (" + select.symbol.id + ")" +  " of " + select.symbol.owner + " owned by " + select.symbol.owner.owner)
+              case _ =>             println(defParent.getOrElse("root") + " uses: " + select.symbol + " of type " + select.symbol.tpe.typeSymbol)
             }
             
             //select.symbol.tpe.typeSymbol + " or rather of " + select.symbol.owner)
@@ -152,24 +158,33 @@ object DependencyExtraction{
             //println(ident.symbol)
           case typeTree: TypeTree  => // are we missing something by not handling this?
           
+          case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+            val s = tree.symbol
+            println(defParent.get.id + " declares own member: " + s.kindString + " " + s.nameString + " (" + s.id + ")")
+            val traverser = new ExtractAll(Some(tree.symbol))
+            traverser.traverse(rhs)
+            
           case Template(parents, self, body) =>
             val parentTypeSymbols: Set[global.Symbol] = parents.map(parent => parent.tpe.typeSymbol).toSet
             println
             println(tree.tpe.typeSymbol.keyString + " " + tree.tpe.typeSymbol.nameString + " (" + tree.tpe.typeSymbol.id + ") ")
-            println("is owned by " + tree.tpe.typeSymbol.owner + " owned by " + tree.tpe.typeSymbol.owner.owner)
+            if (defParent.isDefined) println("is owned by " + defParent.get.id)
             parentTypeSymbols.foreach(s => println("extends: " + s.keyString + " " + s.nameString + " (" + s.id + ") "))
-            tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString + " (" + s.id + ")")) // TODO: need to deduplicate these
+            //tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString + " (" + s.id + ")")) // TODO: need to deduplicate these
+            val traverser = new ExtractAll(Some(tree.tpe.typeSymbol))
             body foreach { tree =>
-              traverse(tree)
+              traverser.traverse(tree)
             }
             //traverseTrees(body)
-          case tree => super.traverse(tree)
+          case tree =>
+            println(" =========> general traverse call ")
+            super.traverse(tree)
         }
       }
     }
     
     def newTraverse(): collection.immutable.Set[(Symbol, Tree)] = {
-      val traverser = new ExtractAll
+      val traverser = new ExtractAll(None)
       traverser.traverse(unit.body)
       traverser.dependencies
     }
