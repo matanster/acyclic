@@ -16,7 +16,7 @@ object DependencyExtraction{
         mapOver(tpe)
       }
     }
-
+    
     class ExtractDependenciesTraverser extends Traverser {
       protected val depBuf = collection.mutable.ArrayBuffer.empty[(Symbol, Tree)]
       protected def addDependency(sym: Symbol, tree: Tree): Unit = depBuf += ((sym, tree))
@@ -111,7 +111,7 @@ object DependencyExtraction{
       traverser.traverse(unit.body)
       traverser.dependencies
     }
-
+    
     class ExtractAll extends ExtractDependenciesTraverser {
       override def traverse(tree: Tree): Unit = {
         tree match {
@@ -159,7 +159,10 @@ object DependencyExtraction{
             println("is owned by " + tree.tpe.typeSymbol.owner + " owned by " + tree.tpe.typeSymbol.owner.owner)
             parentTypeSymbols.foreach(s => println("extends: " + s.keyString + " " + s.nameString + " (" + s.id + ") "))
             tree.tpe.declarations.foreach(s => println("declares own member: " + s.kindString + " " + s.nameString + " (" + s.id + ")")) // TODO: need to deduplicate these
-            traverseTrees(body)
+            body foreach { tree =>
+              traverse(tree)
+            }
+            //traverseTrees(body)
           case tree => super.traverse(tree)
         }
       }
