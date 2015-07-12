@@ -1,7 +1,7 @@
 
-organization  := "none"
+organization  := "matanster"
 
-name := "types"
+name := "extractor"
 
 version := "0.0.1"
 
@@ -24,22 +24,18 @@ publishTo <<= version { (v: String) =>
 }
 
 pomExtra := (
-  <url>https://github.com/lihaoyi/acyclic</url>
+  <url>https://github.com/matanster/extractor</url>
     <licenses>
       <license>
         <name>MIT license</name>
         <url>http://www.opensource.org/licenses/mit-license.php</url>
       </license>
     </licenses>
-    <scm>
-      <url>git://github.com/lihaoyi/utest.git</url>
-      <connection>scm:git://github.com/lihaoyi/acyclic.git</connection>
-    </scm>
     <developers>
       <developer>
-        <id>lihaoyi</id>
-        <name>Li Haoyi</name>
-        <url>https://github.com/lihaoyi</url>
+        <id>matanster</id>
+        <name>matanster</name>
+        <url>https://github.com/matanster</url>
       </developer>
     </developers>
   )
